@@ -24,6 +24,16 @@ def roll_attack_dice(n):
 
     return hits
 
+def num_dice_for_units(units):
+    return count_units(units) + units['t']
+
+def number_of_hits(units, roll):
+    hits = 0
+    for u in "iatp":
+        hits += min(units[u], roll[u])
+    return hits
+
+
 
 def remove_units(units, hits):
     lost = {'i': 0, 'a': 0, 't': 0, 'p': 0}
@@ -91,7 +101,7 @@ def prompt_for_unit(msg, available_units):
         if inp not in "iatp" or inp == '':
             print("\nError, must enter one of 'i', 'a', 't', or 'p'\n")
             continue
-        
+
         if available_units[inp] == 0:
             print("\nError, no {} units available, pick another.".format(abbrev_to_word(inp)))
             print("Available units: {}\n".format(display_units(available_units)))
@@ -166,14 +176,14 @@ class LandBattle:
         self.defender = ("Defender", defender[0], defender[1])
         self.turn = 0
 
-        self.display_player_units(self.attacker)
-        self.display_player_units(self.defender)
-
-        print()
 
     def fight(self):
+        print("\n\n********** {} **********".format("Beginning battle"))
+
         attacker_num_artillery = self.attacker[1]['a']
         if attacker_num_artillery != 0:
+            print("\n\n********** {} **********".format("Opening salvo"))
+            self.display_both_player_units()
             print("The attacker has an opening salvo with {} artillery.".format(attacker_num_artillery))
             roll = roll_attack_dice(attacker_num_artillery)
             num_hits = roll['a']
@@ -183,6 +193,38 @@ class LandBattle:
                 lost = remove_units(self.defender[1], num_hits)
                 print("Defender loses units: {}".format(display_frontline(lost)))
                 self.prompt_player_reinforce(self.defender)
+
+        # potential salvo is finished, we're ready for first turn of rolling
+        self.turn = 1
+
+        self.player_roll_reinforce(self.defender, self.attacker)
+        self.player_roll_reinforce(self.attacker, self.defender)
+
+
+    def player_roll_reinforce(self, player, other_player):
+        print("\n\n********** Turn {}, {} rolling **********".format(self.turn, player[0]))
+        self.display_both_player_units()
+
+        num_dice = num_dice_for_units(player[1])
+        roll = roll_attack_dice(num_dice)
+        num_hits = number_of_hits(player[1], roll)
+        print("{} rolls {} dice, rolls {} ({} hit{})".format(
+              player[0],
+              num_dice,
+              display_frontline(roll),
+              num_hits,
+              "" if num_hits == 1 else "s"))
+
+        if num_hits > 0:
+            lost = remove_units(other_player[1], num_hits)
+            print("{} loses units: {}".format(other_player[0], display_frontline(lost)))
+            self.prompt_player_reinforce(other_player)
+
+
+    def display_both_player_units(self):
+        self.display_player_units(self.attacker)
+        self.display_player_units(self.defender)
+        print()
 
     def display_player_units(self, player):
         print("\n{}".format(player[0]))
