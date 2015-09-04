@@ -65,9 +65,12 @@ def prompt_player_units(is_attacker):
 
     print()
     front_line = {'i': 0, 'a': 0, 't': 0, 'p': 0}
-    for i in range(1, min(count_units(units), 4) + 1):
-        u = prompt_for_unit("Specify front line unit {}: ".format(i), units)
-        front_line[u] += 1
+    if count_units(units) <= 4:
+        units, front_line = front_line, units
+    else:
+        for i in range(1, 5):
+            u = prompt_for_unit("Specify front line unit {}: ".format(i), units)
+            front_line[u] += 1
 
     return (front_line, units)
 
@@ -85,7 +88,7 @@ def prompt_for_unit(msg, available_units):
     while True:
         inp = input(msg).lower()
 
-        if inp not in "iatp":
+        if inp not in "iatp" or inp == '':
             print("\nError, must enter one of 'i', 'a', 't', or 'p'\n")
             continue
         
@@ -189,20 +192,28 @@ class LandBattle:
 
 
     def prompt_player_reinforce(self, player):
+        if count_units(player[2]) == 0:
+            print("\n{} cannot reinforce, no units in reserve.".format(player[0]))
+            return
+
         print("\n{} needs to reinforce.".format(player[0]))
         print("Front line: {}".format(display_frontline(player[1])))
         print("Reserve: {}".format(display_units(player[2])))
 
-        # if `c` is current number of units in front line and `p` is max allowed for
-        # this turn of battle and `n` is number of units in reserve, we want
-        # to prompt for min(p-c, n) reinforcements
-        c = count_units(player[1])
-        p = front_line_size_per_round(self.turn)
-        n = count_units(player[2])
-        # TODO: actually, don't prompt if n < p - c. reinforce with everything.
-        for i in range(1, min(p-c, n) + 1):
-            u = prompt_for_unit("Specify front line unit {}: ".format(c+i), player[2])
-            player[1][u] += 1
+        num_in_front = count_units(player[1])
+        max_for_round = front_line_size_per_round(self.turn)
+        num_in_reserve = count_units(player[2])
+        num_missing = max_for_round - num_in_front
+
+        if num_in_reserve <= num_missing:
+            for u in "iatp":
+                player[1][u] += player[2][u]
+                player[2][u] = 0
+            print("Automatically reinforced with remaining units.")
+        else:
+            for i in range(1, num_missing + 1):
+                u = prompt_for_unit("Specify front line unit {}: ".format(num_in_front+i), player[2])
+                player[1][u] += 1
 
 
 def front_line_size_per_round(r):
