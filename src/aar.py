@@ -26,56 +26,27 @@ def roll_attack_dice(n):
 
 
 def remove_units(units, hits):
-    # removal is infantry -> artillery -> tank -> plane?
-    # TODO
+    lost = {'i': 0, 'a': 0, 't': 0, 'p': 0}
     for i in range(0, hits):
         if units['i'] > 0:
             units['i'] -= 1
+            lost['i'] += 1
         elif units['a'] > 0:
             units['a'] -= 1
+            lost['a'] += 1
         elif units['t'] > 0:
             units['t'] -= 1
+            lost['t'] += 1
         elif units['p'] > 0:
             units['p'] -= 1
+            lost['p'] += 1
         else:
             # out of units, return
-            return
-
+            return lost
+    return lost
 
 def count_units(units):
     return sum(units.values())
-
-class LandBattle:
-    def __init__(self, attacker, defender):
-        """
-        `attacker` and `defender` are each pairs (<front line units>, <reserve units>)
-        """
-        self.attacker = attacker
-        self.defender = defender
-        self.display_player_units(True)
-        self.display_player_units(False)
-
-    def fight(self):
-        if self.attacker[0]['a'] != 0:
-            print("The attacker has an opening salvo with {} artillery.".format(self.attacker[0]['a']))
-            roll = roll_attack_dice(self.attacker[0]['a'])
-            num_hits = roll['a']
-            print("Opening salvo hits: {}".format(num_hits))
-
-            if num_hits > 0:
-                remove_units(self.defender[0], num_hits)
-                # TODO: prompt defender to reinforce
-
-    def display_player_units(self, is_attacker):
-        if is_attacker:
-            player = self.attacker
-        else:
-            player = self.defender
-
-        print()
-        print("Front line: {}".format(display_frontline(player[0])))
-        print("Reserve: {}".format(display_units(player[1])))
-
 
 def prompt_player_units(is_attacker):
     print()
@@ -94,7 +65,7 @@ def prompt_player_units(is_attacker):
 
     print()
     front_line = {'i': 0, 'a': 0, 't': 0, 'p': 0}
-    for i in range(1, count_units(units) + 1):
+    for i in range(1, min(count_units(units), 4) + 1):
         u = prompt_for_unit("Specify front line unit {}: ".format(i), units)
         front_line[u] += 1
 
@@ -182,7 +153,66 @@ def display_frontline(units):
         display_str += " P"
     return display_str
 
+
+class LandBattle:
+    def __init__(self, attacker, defender):
+        """
+        `attacker` and `defender` are each pairs (<front line units>, <reserve units>)
+        """
+        self.attacker = ("Attacker", attacker[0], attacker[1])
+        self.defender = ("Defender", defender[0], defender[1])
+        self.turn = 0
+
+        self.display_player_units(self.attacker)
+        self.display_player_units(self.defender)
+
+        print()
+
+    def fight(self):
+        attacker_num_artillery = self.attacker[1]['a']
+        if attacker_num_artillery != 0:
+            print("The attacker has an opening salvo with {} artillery.".format(attacker_num_artillery))
+            roll = roll_attack_dice(attacker_num_artillery)
+            num_hits = roll['a']
+            print("Opening salvo hits: {}".format(num_hits))
+
+            if num_hits > 0:
+                lost = remove_units(self.defender[1], num_hits)
+                print("Defender loses units: {}".format(display_frontline(lost)))
+                self.prompt_player_reinforce(self.defender)
+
+    def display_player_units(self, player):
+        print("\n{}".format(player[0]))
+        print("==================")
+        print("Front line: {}".format(display_frontline(player[1])))
+        print("Reserve: {}".format(display_units(player[2])))
+
+
+    def prompt_player_reinforce(self, player):
+        print("\n{} needs to reinforce.".format(player[0]))
+        print("Front line: {}".format(display_frontline(player[1])))
+        print("Reserve: {}".format(display_units(player[2])))
+
+        # if `c` is current number of units in front line and `p` is max allowed for
+        # this turn of battle and `n` is number of units in reserve, we want
+        # to prompt for min(p-c, n) reinforcements
+        c = count_units(player[1])
+        p = front_line_size_per_round(self.turn)
+        n = count_units(player[2])
+        # TODO: actually, don't prompt if n < p - c. reinforce with everything.
+        for i in range(1, min(p-c, n) + 1):
+            u = prompt_for_unit("Specify front line unit {}: ".format(c+i), player[2])
+            player[1][u] += 1
+
+
+def front_line_size_per_round(r):
+    if r== 0 or r== 1:
+        return 4
+    else:
+        return round + 3
+
 attacker = prompt_player_units(True)
 defender = prompt_player_units(False)
 
 battle = LandBattle(attacker, defender)
+battle.fight()
